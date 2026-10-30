@@ -1,0 +1,397 @@
+<div class="app-shell">
+  <!-- Barra superior institucional -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-brand">
+        <span class="badge-poc">PROTOTIPO FUNCIONAL</span>
+        <h1>Generador de Plantilla de Lista de Asistencia (.docx)</h1>
+        <p>Coordinación Estatal IMSS-BIENESTAR Baja California · Recursos Humanos</p>
+      </div>
+      <div class="topbar-actions">
+        <button
+          type="button"
+          class="btn-primary btn-download-top"
+          [disabled]="isGenerating()"
+          (click)="downloadWordTemplate()"
+        >
+          @if (isGenerating()) {
+            <span>Generando Word...</span>
+          } @else {
+            <span>⬇ Descargar Word ({{ calendarSummary().monthName }} {{ selectedYear() }})</span>
+          }
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-grid">
+    <!-- Columna Izquierda: Controles y Reglas -->
+    <aside class="controls-panel">
+      <!-- 1. Selección de Periodo -->
+      <section class="card">
+        <div class="card-header">
+          <h2>1. Selecciona Mes y Año</h2>
+          @if (calendarSummary().isLeapYear) {
+            <span class="chip chip-leap" title="Febrero tiene 29 días en este año">
+              Año Bisiesto (Feb 29 días)
+            </span>
+          }
+        </div>
+
+        <div class="form-row-2col">
+          <div class="form-field">
+            <label for="select-month">Mes</label>
+            <select
+              id="select-month"
+              [ngModel]="selectedMonth()"
+              (ngModelChange)="onMonthChange($event)"
+            >
+              @for (m of months; track m.value) {
+                <option [ngValue]="m.value">{{ m.label }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label for="select-year">Año</label>
+            <select
+              id="select-year"
+              [ngModel]="selectedYear()"
+              (ngModelChange)="onYearChange($event)"
+            >
+              @for (yr of availableYears; track yr) {
+                <option [ngValue]="yr">{{ yr }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <!-- Resumen rápido numérico -->
+        <div class="kpi-grid">
+          <div class="kpi-box">
+            <span class="kpi-value">{{ calendarSummary().daysInMonth }}</span>
+            <span class="kpi-label">Días del mes</span>
+          </div>
+          <div class="kpi-box kpi-shaded">
+            <span class="kpi-value">{{ calendarSummary().weekendDaysCount }}</span>
+            <span class="kpi-label">Fines de semana</span>
+          </div>
+          <div class="kpi-box kpi-holiday">
+            <span class="kpi-value">{{ calendarSummary().effectiveHolidaysCount }}</span>
+            <span class="kpi-label">Festivos / Inhábiles</span>
+          </div>
+          <div class="kpi-box kpi-work">
+            <span class="kpi-value">{{ calendarSummary().workingDaysCount }}</span>
+            <span class="kpi-label">Días hábiles</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn-primary btn-full"
+          [disabled]="isGenerating()"
+          (click)="downloadWordTemplate()"
+        >
+          @if (isGenerating()) {
+            <span>Generando archivo .docx...</span>
+          } @else {
+            <span>⬇ Descargar Formato Word (.docx)</span>
+          }
+        </button>
+
+        @if (lastDownloadedFile(); as fileName) {
+          <div class="alert-success">
+            <strong>¡Plantilla descargada!</strong>
+            <span>Archivo: <code>{{ fileName }}</code></span>
+          </div>
+        }
+
+        @if (errorMessage(); as err) {
+          <div class="alert-error">
+            <strong>Error:</strong> {{ err }}
+          </div>
+        }
+      </section>
+
+      <!-- 2. Estructura de Días Festivos (Fijos vs. Recorribles al lunes) -->
+      <section class="card">
+        <div class="card-header">
+          <h2>2. Regla de Días Festivos (Hardcodeados)</h2>
+        </div>
+        <p class="card-subtitle">
+          Por defecto todos los festivos están en modo <strong>Fijo en su fecha</strong> (si caen en sábado o domingo quedan dentro del fin de semana). Puedes activar el switch si deseas probar cuáles se recorren al lunes.
+        </p>
+
+        @if (currentMonthHolidayRules().length > 0) {
+          <div class="month-holiday-callout">
+            <strong>Festivos en {{ calendarSummary().monthName }} {{ selectedYear() }}:</strong>
+            @for (mh of currentMonthHolidayRules(); track mh.id) {
+              <div class="month-holiday-item">
+                <span>
+                  • <strong>Día {{ mh.resolvedDay }}</strong> ({{ mh.name }})
+                </span>
+                @if (mh.fallsOnWeekend) {
+                  <span class="badge-weekend-coincidence">
+                    Cae en fin de semana (sin efecto extra)
+                  </span>
+                } @else {
+                  <span class="badge-weekday-shaded">
+                    Sombreado entre semana
+                  </span>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="month-holiday-empty">
+            No hay días festivos oficiales registrados en {{ calendarSummary().monthName }}.
+          </div>
+        }
+
+        <div class="holiday-list">
+          @for (rule of holidayRules(); track rule.id) {
+            <div
+              class="holiday-row"
+              [class.holiday-row-active]="rule.month === selectedMonth()"
+            >
+              <div class="holiday-info">
+                <span class="holiday-date">
+                  {{ rule.day }} de {{ months[rule.month - 1].label }}
+                </span>
+                <span class="holiday-name">{{ rule.name }}</span>
+              </div>
+              <label class="switch-label" title="Controla si este festivo se recorre al lunes">
+                <input
+                  type="checkbox"
+                  [checked]="rule.moveToMonday"
+                  (change)="toggleRuleMoveToMonday(rule.id)"
+                />
+                <span class="switch-text">
+                  {{ rule.moveToMonday ? 'Recorrible al lunes' : 'Fijo en su día' }}
+                </span>
+              </label>
+            </div>
+          }
+        </div>
+
+        <label class="checkbox-row">
+          <input
+            type="checkbox"
+            [ngModel]="showHolidayNameInObs()"
+            (ngModelChange)="showHolidayNameInObs.set($event)"
+          />
+          <span>Escribir nombre del festivo en columna <code>OBSERVACIONES</code></span>
+        </label>
+      </section>
+
+      <!-- 3. Textos Base del Documento Word -->
+      <section class="card">
+        <div class="card-header">
+          <h2>3. Textos en el Word Generado</h2>
+          <button type="button" class="btn-link" (click)="resetPlaceholders()">
+            Restaurar leyenda base
+          </button>
+        </div>
+        <p class="card-subtitle">
+          El archivo <code>.docx</code> se descarga con estas leyendas para que cada empleado las reemplace en Word (o puedes escribirlas aquí antes de descargar):
+        </p>
+
+        <div class="form-field">
+          <label for="input-nombre">Campo Nombre</label>
+          <input
+            id="input-nombre"
+            type="text"
+            [ngModel]="nombrePlaceholder()"
+            (ngModelChange)="nombrePlaceholder.set($event)"
+          />
+        </div>
+
+        <div class="form-field">
+          <label for="input-puesto">Campo Puesto</label>
+          <input
+            id="input-puesto"
+            type="text"
+            [ngModel]="puestoPlaceholder()"
+            (ngModelChange)="puestoPlaceholder.set($event)"
+          />
+        </div>
+
+        <div class="fixed-fields-summary">
+          <div><strong>Jornada:</strong> {{ jornada() }}</div>
+          <div><strong>Horario:</strong> {{ horario() }}</div>
+          <div><strong>Adscripción:</strong> {{ adscripcion() }}</div>
+        </div>
+      </section>
+    </aside>
+
+    <!-- Columna Derecha: Vista Previa de la Hoja Carta Oficial -->
+    <section class="preview-panel">
+      <div class="preview-toolbar">
+        <div>
+          <strong>Vista Previa del Documento Word</strong>
+          <span class="preview-hint">
+            (Tip: Haz clic en cualquier día hábil de la tabla si deseas sombrear/desombrear un día otorgado adicional)
+          </span>
+        </div>
+        <div class="legend-items">
+          <span class="legend-item">
+            <i class="swatch swatch-white"></i> Día hábil (se firma)
+          </span>
+          <span class="legend-item">
+            <i class="swatch swatch-gray"></i> Sábado / Domingo / Festivo (no se llena)
+          </span>
+        </div>
+      </div>
+
+      <!-- Hoja tamaño Carta simulada -->
+      <div class="paper-sheet">
+        <!-- Encabezado oficial -->
+        <div class="sheet-header">
+          <img src="HEADER.png" alt="Encabezado Institucional IMSS Bienestar" />
+        </div>
+
+        <!-- Tabla 0: Metadatos del empleado -->
+        <table class="sheet-meta-table">
+          <tbody>
+            <tr>
+              <td class="meta-label">Nombre:</td>
+              <td class="meta-value meta-placeholder">{{ nombrePlaceholder() }}</td>
+              <td class="meta-label">Mes:</td>
+              <td class="meta-value">{{ calendarSummary().monthName }}</td>
+              <td class="meta-label">Año:</td>
+              <td class="meta-value">{{ selectedYear() }}</td>
+            </tr>
+            <tr>
+              <td class="meta-label">Puesto:</td>
+              <td class="meta-value meta-placeholder">{{ puestoPlaceholder() }}</td>
+              <td class="meta-label">
+                <div>Jornada:</div>
+                <div>Horario:</div>
+              </td>
+              <td class="meta-value" colspan="3">
+                <div>{{ jornada() }}</div>
+                <div>{{ horario() }}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="meta-label">Adscripción:</td>
+              <td class="meta-value" colspan="5">{{ adscripcion() }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Tabla 1: Días del mes (1..15, encabezado repetido, 16..N) -->
+        <table class="sheet-days-table">
+          <thead>
+            <tr class="table-header-row">
+              <th class="col-dia">DÍA</th>
+              <th class="col-hora">HORA DE<br />ENTRADA</th>
+              <th class="col-firma">FIRMA</th>
+              <th class="col-hora">HORA DE<br />SALIDA</th>
+              <th class="col-firma">FIRMA</th>
+              <th class="col-obs">OBSERVACIONES</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (d of firstHalfDays(); track d.day) {
+              <tr
+                [class.row-shaded]="d.isShaded"
+                [class.row-clickable]="!d.isWeekend && !d.isHoliday"
+                (click)="toggleCustomDayShade(d)"
+                [title]="
+                  d.isWeekend
+                    ? d.dayName + ' (Fin de semana)'
+                    : d.isHoliday
+                      ? d.dayName + ' - Festivo: ' + d.holidayName
+                      : d.isCustomShaded
+                        ? d.dayName + ' - Día inhábil manual (clic para quitar)'
+                        : d.dayName + ' - Día hábil (clic para sombrear como día otorgado)'
+                "
+              >
+                <td class="col-dia">{{ d.day }}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="col-obs-cell">
+                  @if (showHolidayNameInObs() && d.isHoliday && d.holidayName) {
+                    <span class="obs-holiday-text">{{ d.holidayName }}</span>
+                  } @else {
+                    <span class="row-day-badge">
+                      {{ d.dayName.slice(0, 3) }}
+                      @if (d.isHoliday) {
+                        · Festivo
+                      } @else if (d.isCustomShaded) {
+                        · Otorgado
+                      }
+                    </span>
+                  }
+                </td>
+              </tr>
+            }
+
+            <!-- Segundo encabezado intermedio tal como en el formato oficial -->
+            <tr class="table-header-row table-header-repeat">
+              <th class="col-dia">DÍA</th>
+              <th class="col-hora">HORA DE<br />ENTRADA</th>
+              <th class="col-firma">FIRMA</th>
+              <th class="col-hora">HORA DE<br />SALIDA</th>
+              <th class="col-firma">FIRMA</th>
+              <th class="col-obs">OBSERVACIONES</th>
+            </tr>
+
+            @for (d of secondHalfDays(); track d.day) {
+              <tr
+                [class.row-shaded]="d.isShaded"
+                [class.row-clickable]="!d.isWeekend && !d.isHoliday"
+                (click)="toggleCustomDayShade(d)"
+                [title]="
+                  d.isWeekend
+                    ? d.dayName + ' (Fin de semana)'
+                    : d.isHoliday
+                      ? d.dayName + ' - Festivo: ' + d.holidayName
+                      : d.isCustomShaded
+                        ? d.dayName + ' - Día inhábil manual (clic para quitar)'
+                        : d.dayName + ' - Día hábil (clic para sombrear como día otorgado)'
+                "
+              >
+                <td class="col-dia">{{ d.day }}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td class="col-obs-cell">
+                  @if (showHolidayNameInObs() && d.isHoliday && d.holidayName) {
+                    <span class="obs-holiday-text">{{ d.holidayName }}</span>
+                  } @else {
+                    <span class="row-day-badge">
+                      {{ d.dayName.slice(0, 3) }}
+                      @if (d.isHoliday) {
+                        · Festivo
+                      } @else if (d.isCustomShaded) {
+                        · Otorgado
+                      }
+                    </span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+
+        <!-- Pie de página oficial -->
+        <div class="sheet-footer">
+          <img
+            src="FOOTER.png"
+            alt="2026 Año de Margarita Maza"
+            class="footer-logo"
+          />
+          <div class="footer-sign-area">
+            <div class="footer-maroon-line"></div>
+            <div class="footer-signer-name">{{ firmante() }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
