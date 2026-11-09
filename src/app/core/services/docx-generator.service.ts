@@ -8,7 +8,6 @@ const SHADED_DAY_HEX = 'A6A6A6'; // Gris institucional para sábados, domingos y
 export interface DocxGenerateOptions {
   calendar: MonthCalendarSummary;
   placeholders: DocumentPlaceholders;
-  showHolidayNameInObservations?: boolean;
 }
 
 @Injectable({
@@ -26,9 +25,7 @@ export class DocxGeneratorService {
     }
     const response = await fetch('template-membretado-2026.docx');
     if (!response.ok) {
-      throw new Error(
-        `No se pudo cargar la plantilla base (HTTP ${response.status})`
-      );
+      throw new Error(`No se encontró la plantilla institucional template-membretado-2026.docx (HTTP ${response.status}). Solicita el archivo aprobado a RH.`);
     }
     this.templateBufferCache = await response.arrayBuffer();
     return this.templateBufferCache;
@@ -40,20 +37,28 @@ export class DocxGeneratorService {
    */
   async generateAttendanceDocx(options: DocxGenerateOptions): Promise<Blob> {
     const buffer = await this.loadTemplateBuffer();
-    const zip = await JSZip.loadAsync(buffer);
+    let zip: JSZip;
+    try {
+      zip = await JSZip.loadAsync(buffer);
+    } catch {
+      throw new Error('La plantilla institucional no es un archivo Word válido o está dañada.');
+    }
 
     const docXmlFile = zip.file('word/document.xml');
     if (!docXmlFile) {
-      throw new Error('El archivo plantilla no contiene word/document.xml');
+      throw new Error('La plantilla institucional es incompatible: no contiene word/document.xml.');
     }
 
     const docXmlStr = await docXmlFile.async('string');
     const parser = new DOMParser();
     const xmlDoc = parser.parseFromString(docXmlStr, 'application/xml');
+    if (xmlDoc.getElementsByTagName('parsererror').length > 0) {
+      throw new Error('La plantilla institucional es incompatible: document.xml no es válido.');
+    }
 
     const tables = xmlDoc.getElementsByTagNameNS(W_NS, 'tbl');
     if (tables.length < 2) {
-      throw new Error('Estructura de tablas no válida en la plantilla Word');
+      throw new Error('La plantilla institucional es incompatible: se esperaban las tablas de datos y calendario.');
     }
 
     const metadataTable = tables[0];
@@ -63,12 +68,7 @@ export class DocxGeneratorService {
     this.updateMetadataTable(metadataTable, options.placeholders);
 
     // 2. Actualizar Tabla 1 (Filas de días 1..31, recortar meses cortos y sombrear inhábiles)
-    this.updateDaysTable(
-      xmlDoc,
-      daysTable,
-      options.calendar,
-      Boolean(options.showHolidayNameInObservations)
-    );
+    this.updateDaysTable(xmlDoc, daysTable, options.calendar);
 
     const serializer = new XMLSerializer();
     const updatedDocXml = serializer.serializeToString(xmlDoc);
@@ -87,7 +87,9 @@ export class DocxGeneratorService {
    */
   async downloadAttendanceDocx(options: DocxGenerateOptions): Promise<string> {
     const blob = await this.generateAttendanceDocx(options);
-    const fileName = `Lista_Asistencia_${options.calendar.monthName}_${options.calendar.year}.docx`;
+    const workerName = this.normalizeFileNamePart(options.placeholders.nombre);
+    const month = String(options.calendar.month).padStart(2, '0');
+    const fileName = `Lista_Asistencia_${options.calendar.year}-${month}_${workerName}.docx`;
 
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
@@ -107,7 +109,7 @@ export class DocxGeneratorService {
   ): void {
     const rows = this.getDirectChildrenByTagName(tableEl, 'tr');
     if (rows.length < 3) {
-      return;
+      throw new Error('La plantilla institucional es incompatible: la tabla de datos no tiene las filas esperadas.');
     }
 
     // Fila 0: [Nombre:, VALOR_NOMBRE, Mes:, VALOR_MES, Año:, VALOR_ANIO]
@@ -134,10 +136,12 @@ export class DocxGeneratorService {
   private updateDaysTable(
     xmlDoc: Document,
     tableEl: Element,
-    calendar: MonthCalendarSummary,
-    showHolidayNameInObservations: boolean
+    calendar: MonthCalendarSummary
   ): void {
     const rows = this.getDirectChildrenByTagName(tableEl, 'tr');
+    if (rows.length < 33) {
+      throw new Error('La plantilla institucional es incompatible: la tabla de calendario no contiene los días 1 a 31.');
+    }
     // Estructura de Tabla 1 en template-membretado-2026.docx:
     // Row 0: Encabezado (DÍA | HORA DE ENTRADA | ...)
     // Rows 1..15: Días 1 al 15
@@ -177,11 +181,7 @@ export class DocxGeneratorService {
 
       // Opcional: escribir el nombre del día festivo en la columna OBSERVACIONES (celda índice 5)
       if (cells.length >= 6) {
-        if (showHolidayNameInObservations && dayInfo.isHoliday && dayInfo.holidayName) {
-          this.setCellText(cells[5], dayInfo.holidayName.toUpperCase());
-        } else {
-          this.setCellText(cells[5], '\u00A0');
-        }
+        this.setCellText(cells[5], '\u00A0');
       }
     }
   }
@@ -230,7 +230,22 @@ export class DocxGeneratorService {
       for (let i = 1; i < textNodes.length; i++) {
         textNodes[i].textContent = '';
       }
+      return;
     }
+    const xmlDoc = cellEl.ownerDocument;
+    const paragraph = xmlDoc.createElementNS(W_NS, 'w:p');
+    const run = xmlDoc.createElementNS(W_NS, 'w:r');
+    const text = xmlDoc.createElementNS(W_NS, 'w:t');
+    text.textContent = newText;
+    run.appendChild(text);
+    paragraph.appendChild(run);
+    cellEl.appendChild(paragraph);
+  }
+
+  normalizeFileNamePart(value: string): string {
+    return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[<>:\"/\\|?*\u0000-\u001F]/g, '').trim()
+      .replace(/[. ]+$/g, '').replace(/\s+/g, '_').slice(0, 80) || 'Trabajador';
   }
 
   private getDirectChildrenByTagName(

@@ -1,87 +1,35 @@
-import { DocumentPlaceholders, HolidayRule } from '../models/attendance.model';
+import { DocumentPlaceholders, InstitutionalCalendar } from '../models/attendance.model';
 
-export const MONTHS_CATALOG: { value: number; label: string; upper: string }[] = [
-  { value: 1, label: 'Enero', upper: 'ENERO' },
-  { value: 2, label: 'Febrero', upper: 'FEBRERO' },
-  { value: 3, label: 'Marzo', upper: 'MARZO' },
-  { value: 4, label: 'Abril', upper: 'ABRIL' },
-  { value: 5, label: 'Mayo', upper: 'MAYO' },
-  { value: 6, label: 'Junio', upper: 'JUNIO' },
-  { value: 7, label: 'Julio', upper: 'JULIO' },
-  { value: 8, label: 'Agosto', upper: 'AGOSTO' },
-  { value: 9, label: 'Septiembre', upper: 'SEPTIEMBRE' },
-  { value: 10, label: 'Octubre', upper: 'OCTUBRE' },
-  { value: 11, label: 'Noviembre', upper: 'NOVIEMBRE' },
-  { value: 12, label: 'Diciembre', upper: 'DICIEMBRE' },
-];
+export const MONTHS_CATALOG = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+].map((label, index) => ({ value: index + 1, label, upper: label.toUpperCase() }));
 
-export const DEFAULT_PLACEHOLDERS: DocumentPlaceholders = {
-  nombre: 'INSERTE NOMBRE COMPLETO AQUÍ',
-  puesto: 'INSERTE PUESTO AQUÍ',
-  mes: 'MARZO',
-  anio: '2026',
+export const DEFAULT_PLACEHOLDERS: Omit<DocumentPlaceholders, 'nombre' | 'puesto' | 'mes' | 'anio'> = {
   jornada: 'LUNES A VIERNES',
   horario: '08:00 – 17:00 HRS',
   adscripcion: 'COORDINACIÓN ESTATAL DE IMSS BIENESTAR BAJA CALIFORNIA',
-  firmante: 'Lic. José Luis Acevedo De La Peña',
 };
 
-/**
- * Catálogo hardcodeado de días festivos por año.
- * Por definición inicial, todos tienen `moveToMonday: false` (fijos el día que caigan).
- * La estructura soporta cambiar `moveToMonday: true` cuando RH confirme cuáles se recorren.
- */
-export const INITIAL_HOLIDAY_RULES: HolidayRule[] = [
-  {
-    id: 'new-year',
-    month: 1,
-    day: 1,
-    name: 'Año Nuevo',
-    moveToMonday: false,
+/** Para incorporar otro ejercicio se agrega una entrada respaldada por su circular. */
+export const INSTITUTIONAL_CALENDARS: Readonly<Record<number, InstitutionalCalendar>> = {
+  2026: {
+    year: 2026,
+    source: 'Circular IB-UAF-CRH-0003-2026',
+    confirmed: true,
+    holidays: [
+      { id: 'new-year', name: 'Año Nuevo', scope: 'general', dateRule: { type: 'fixed', month: 1, day: 1 } },
+      { id: 'constitution-day', name: 'Conmemoración de la Constitución', scope: 'general', dateRule: { type: 'nth-weekday', month: 2, weekday: 1, occurrence: 1 } },
+      { id: 'benito-juarez', name: 'Conmemoración del natalicio de Benito Juárez', scope: 'general', dateRule: { type: 'nth-weekday', month: 3, weekday: 1, occurrence: 3 } },
+      { id: 'labor-day', name: 'Día del Trabajo', scope: 'general', dateRule: { type: 'fixed', month: 5, day: 1 } },
+      { id: 'independence-day', name: 'Día de la Independencia', scope: 'general', dateRule: { type: 'fixed', month: 9, day: 16 } },
+      { id: 'revolution-day', name: 'Conmemoración de la Revolución Mexicana', scope: 'general', dateRule: { type: 'nth-weekday', month: 11, weekday: 1, occurrence: 3 } },
+      { id: 'christmas', name: 'Navidad', scope: 'general', dateRule: { type: 'fixed', month: 12, day: 25 } },
+      { id: 'battle-of-puebla', name: 'Conmemoración de la Batalla de Puebla', scope: 'additional', dateRule: { type: 'fixed', month: 5, day: 5 }, applicability: 'Aplicable únicamente a los trabajadores que indique la circular; no se sombrea de forma general.' },
+    ],
   },
-  {
-    id: 'constitution-day',
-    month: 2,
-    day: 5,
-    name: 'Día de la Constitución Mexicana',
-    moveToMonday: false,
-    nthMonday: 1,
-  },
-  {
-    id: 'benito-juarez',
-    month: 3,
-    day: 21,
-    name: 'Natalicio de Benito Juárez',
-    moveToMonday: false,
-    nthMonday: 3,
-  },
-  {
-    id: 'labor-day',
-    month: 5,
-    day: 1,
-    name: 'Día del Trabajo',
-    moveToMonday: false,
-  },
-  {
-    id: 'independence-day',
-    month: 9,
-    day: 16,
-    name: 'Día de la Independencia',
-    moveToMonday: false,
-  },
-  {
-    id: 'revolution-day',
-    month: 11,
-    day: 20,
-    name: 'Día de la Revolución Mexicana',
-    moveToMonday: false,
-    nthMonday: 3,
-  },
-  {
-    id: 'christmas',
-    month: 12,
-    day: 25,
-    name: 'Navidad',
-    moveToMonday: false,
-  },
-];
+};
+
+export function getInstitutionalCalendar(year: number): InstitutionalCalendar | undefined {
+  return INSTITUTIONAL_CALENDARS[year];
+}
