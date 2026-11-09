@@ -9,6 +9,12 @@ export class CalendarService {
   isLeapYear(year: number): boolean { return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0; }
   getDaysInMonth(year: number, month: number): number { return new Date(year, month, 0).getDate(); }
 
+  getSecondSectionStartDay(year: number, month: number): number {
+    const dayOfWeek = new Date(year, month - 1, 16).getDay();
+    const daysUntilMonday = (8 - dayOfWeek) % 7;
+    return 16 + daysUntilMonday;
+  }
+
   resolveHolidayDay(year: number, rule: HolidayRule): number | null {
     const dateRule = rule.dateRule;
     const daysInMonth = this.getDaysInMonth(year, dateRule.month);
@@ -42,6 +48,6 @@ export class CalendarService {
       if (isWeekend) weekendDaysCount++; else if (isHoliday) effectiveHolidaysCount++; else workingDaysCount++;
       days.push({ day, date, dayOfWeek, dayName: DAY_NAMES_ES[dayOfWeek], isWeekend, isHoliday, holidayName, isShaded: isWeekend || isHoliday });
     }
-    return { year, month, monthName: MONTHS_CATALOG.find((entry) => entry.value === month)?.upper ?? '', daysInMonth, isLeapYear: this.isLeapYear(year), hasConfirmedInstitutionalCalendar: confirmed, weekendDaysCount, effectiveHolidaysCount, workingDaysCount, days };
+    return { year, month, monthName: MONTHS_CATALOG.find((entry) => entry.value === month)?.upper ?? '', daysInMonth, secondSectionStartDay: this.getSecondSectionStartDay(year, month), isLeapYear: this.isLeapYear(year), hasConfirmedInstitutionalCalendar: confirmed, weekendDaysCount, effectiveHolidaysCount, workingDaysCount, days };
   }
 }

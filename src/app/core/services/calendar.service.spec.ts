@@ -32,4 +32,12 @@ describe('CalendarService', () => {
     expect(calendar.hasConfirmedInstitutionalCalendar).toBe(false);
     expect(calendar.days.find((day) => day.day === 7)?.isHoliday).toBe(true);
   });
+
+  it('inicia la segunda sección el lunes posterior cuando el día 16 cae en viernes', () => {
+    expect(service.buildMonthCalendar(2026, 1).secondSectionStartDay).toBe(19);
+  });
+
+  it('conserva el día 16 como inicio de sección cuando cae en lunes', () => {
+    expect(service.buildMonthCalendar(2026, 3).secondSectionStartDay).toBe(16);
+  });
 });

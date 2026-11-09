@@ -11,7 +11,7 @@ La solución funciona completamente en el navegador: no requiere backend, autent
 - Validación de campos obligatorios antes de descargar.
 - Cálculo de meses de 28, 29, 30 y 31 días, incluidos años bisiestos.
 - Identificación y sombreado de sábados, domingos y descansos generales.
-- Vista previa con dos secciones de calendario: días 1 a 15 y 16 al último día del mes.
+- Vista previa con dos secciones de calendario; la segunda comienza el primer lunes a partir del día 16 para conservar semanas completas.
 - Leyenda informativa `Lun - Día de descanso` en la vista previa cuando un descanso general cae entre semana.
 - Generación local de archivos `.docx` mediante JSZip y OpenXML.
 - Eliminación de filas correspondientes a días inexistentes sin alterar los dos encabezados del calendario.

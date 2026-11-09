@@ -142,22 +142,18 @@ export class DocxGeneratorService {
     if (rows.length < 33) {
       throw new Error('La plantilla institucional es incompatible: la tabla de calendario no contiene los días 1 a 31.');
     }
-    // Estructura de Tabla 1 en template-membretado-2026.docx:
-    // Row 0: Encabezado (DÍA | HORA DE ENTRADA | ...)
-    // Rows 1..15: Días 1 al 15
-    // Row 16: Segundo Encabezado (DÍA | HORA DE ENTRADA | ...)
-    // Rows 17..32: Días 16 al 31
+    // La plantilla aporta dos encabezados y 31 filas de días. El segundo encabezado
+    // se mueve al primer lunes a partir del día 16 para no dividir una semana.
+    const secondHeaderRow = rows[16];
+    const dayRows = [...rows.slice(1, 16), ...rows.slice(17, 33)];
+    const secondSectionFirstRow = dayRows[calendar.secondSectionStartDay - 1];
+    tableEl.insertBefore(secondHeaderRow, secondSectionFirstRow);
 
     const dayInfoByNumber = new Map(calendar.days.map((d) => [d.day, d]));
 
-    for (let rIdx = 1; rIdx < rows.length; rIdx++) {
-      if (rIdx === 16) {
-        // Es el segundo encabezado intermedio; lo conservamos intacto
-        continue;
-      }
-
-      const dayNumber = rIdx < 16 ? rIdx : rIdx - 1;
-      const rowEl = rows[rIdx];
+    for (let rowIndex = 0; rowIndex < dayRows.length; rowIndex++) {
+      const dayNumber = rowIndex + 1;
+      const rowEl = dayRows[rowIndex];
 
       // Si el día excede los días reales del mes (ej. 29, 30, 31 en febrero), eliminamos la fila
       if (dayNumber > calendar.daysInMonth) {

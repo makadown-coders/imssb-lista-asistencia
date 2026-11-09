@@ -53,6 +53,7 @@ Estas ideas son **requerimientos por validar**, no autorización para construirl
 - El sombreado de fin de semana debe ser independiente del de festivos y ajustes manuales; un mismo día puede reunir más de una causa.
 - Nunca inventar feriados, suspensiones, excepciones o autorizaciones institucionales.
 - Las filas de días inexistentes del mes deben eliminarse o tratarse conforme a la plantilla aprobada, sin romper el diseño.
+- Los dos bloques del calendario deben respetar semanas completas: el segundo encabezado comienza el primer lunes a partir del día 16. La división 1–15 de la plantilla es solo una referencia estructural.
 
 ## 7. Arquitectura y restricciones
 - **No hay infraestructura propia** disponible para este proyecto.

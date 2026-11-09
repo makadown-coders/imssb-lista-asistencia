@@ -23,8 +23,8 @@ export class App {
   readonly aboutVisible = signal(false);
   readonly currentYear = new Date().getFullYear();
   readonly calendarSummary = computed(() => this.calendarService.buildMonthCalendar(this.selectedYear(), this.selectedMonth()));
-  readonly firstHalfDays = computed(() => this.calendarSummary().days.filter((day) => day.day <= 15));
-  readonly secondHalfDays = computed(() => this.calendarSummary().days.filter((day) => day.day >= 16));
+  readonly firstHalfDays = computed(() => this.calendarSummary().days.filter((day) => day.day < this.calendarSummary().secondSectionStartDay));
+  readonly secondHalfDays = computed(() => this.calendarSummary().days.filter((day) => day.day >= this.calendarSummary().secondSectionStartDay));
 
   constructor() {
     const browserWindow = this.document.defaultView;
